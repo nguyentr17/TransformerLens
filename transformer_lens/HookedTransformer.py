@@ -1231,6 +1231,7 @@ class HookedTransformer(HookedRootModule):
         ), "Quantization not supported"
 
         if hf_model is not None:
+            hf_config = hf_model.config
             hf_cfg = hf_model.config.to_dict()
             qc = hf_cfg.get("quantization_config", {})
             load_in_4bit = qc.get("load_in_4bit", False)
@@ -1248,6 +1249,7 @@ class HookedTransformer(HookedRootModule):
                     qc.get("quant_method", "") == "bitsandbytes"
                 ), "Only bitsandbytes quantization is supported"
         else:
+            hf_config = None
             hf_cfg = {}
 
         if isinstance(dtype, str):
@@ -1270,8 +1272,10 @@ class HookedTransformer(HookedRootModule):
         # Load the config into an HookedTransformerConfig object. If loading from a
         # checkpoint, the config object will contain the information about the
         # checkpoint
+        
         cfg = loading.get_pretrained_model_config(
             official_model_name,
+            hf_config=hf_config,
             hf_cfg=hf_cfg,
             checkpoint_index=checkpoint_index,
             checkpoint_value=checkpoint_value,

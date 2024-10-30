@@ -711,7 +711,7 @@ def get_official_model_name(model_name: str):
     return official_model_name
 
 
-def convert_hf_model_config(model_name: str, **kwargs):
+def convert_hf_model_config(model_name: str, hf_config = None, **kwargs):
     """
     Returns the model config for a HuggingFace model, converted to a dictionary
     in the HookedTransformerConfig format.
@@ -733,12 +733,13 @@ def convert_hf_model_config(model_name: str, **kwargs):
     elif "gemma" in official_model_name.lower():
         architecture = "GemmaForCausalLM"
     else:
-        huggingface_token = os.environ.get("HF_TOKEN", None)
-        hf_config = AutoConfig.from_pretrained(
-            official_model_name,
-            token=huggingface_token,
-            **kwargs,
-        )
+        if hf_config is None:
+            huggingface_token = os.environ.get("HF_TOKEN", None)
+            hf_config = AutoConfig.from_pretrained(
+                official_model_name,
+                token=huggingface_token,
+                **kwargs,
+            )
         architecture = hf_config.architectures[0]
 
     if official_model_name.startswith(
@@ -1107,7 +1108,7 @@ def convert_hf_model_config(model_name: str, **kwargs):
             "n_heads": hf_config.num_attention_heads,
             "d_mlp": hf_config.intermediate_size,
             "n_layers": hf_config.num_hidden_layers,
-            "n_ctx": 2048,  # Capped due to memory issues
+            "n_ctx": 3000,  # Capped due to memory issues
             "d_vocab": hf_config.vocab_size,
             "act_fn": hf_config.hidden_act,
             "window_size": hf_config.sliding_window,  # None if no sliding window was used
@@ -1492,6 +1493,7 @@ def convert_neel_model_config(official_model_name: str, **kwargs):
 
 def get_pretrained_model_config(
     model_name: str,
+    hf_config = None,
     hf_cfg: Optional[dict] = None,
     checkpoint_index: Optional[int] = None,
     checkpoint_value: Optional[int] = None,
@@ -1539,12 +1541,13 @@ def get_pretrained_model_config(
             Also given to other HuggingFace functions when compatible.
 
     """
-    if Path(model_name).exists():
+    if Path(model_name).exists() or hf_config is not None:
         # If the model_name is a path, it's a local model
-        cfg_dict = convert_hf_model_config(model_name, **kwargs)
+        cfg_dict = convert_hf_model_config(model_name, hf_config=hf_config, **kwargs)
         official_model_name = model_name
     else:
         official_model_name = get_official_model_name(model_name)
+    
     if (
         official_model_name.startswith("NeelNanda")
         or official_model_name.startswith("ArthurConmy")
@@ -1559,7 +1562,7 @@ def get_pretrained_model_config(
                 f"Loading model {official_model_name} requires setting trust_remote_code=True"
             )
             kwargs["trust_remote_code"] = True
-        cfg_dict = convert_hf_model_config(official_model_name, **kwargs)
+        cfg_dict = convert_hf_model_config(official_model_name, hf_config=hf_config, **kwargs)
     # Processing common to both model types
     # Remove any prefix, saying the organization who made a model.
     cfg_dict["model_name"] = official_model_name.split("/")[-1]
